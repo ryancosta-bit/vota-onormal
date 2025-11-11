@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Votação Paranormal</title>
+  <style>
+    body {
+      background-color: #1a001a;
+      color: white;
+      font-family: 'Poppins', sans-serif;
+      text-align: center;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .hidden { display: none; }
+
+    #painelMestre {
+      background-color: rgba(60, 0, 60, 0.7);
+      padding: 10px;
+      border-bottom: 2px solid #800080;
+    }
+
+    #jogo {
+      display: flex;
+      flex-direction: column;
+      height: 90vh;
+    }
+
+    .quadrado {
+      flex: 1;
+      border: 2px solid #800080;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.3s ease;
+    }
+
+    .quadrado:hover {
+      background: rgba(128, 0, 128, 0.15);
+    }
+
+    .minhoquinha {
+      position: absolute;
+      width: 20px;
+      height: 10px;
+      border-radius: 10px;
+    }
+
+    .nick {
+      position: absolute;
+      top: -18px;
+      font-size: 10px;
+      color: #d8b0ff;
+      text-shadow: 0 0 5px #a020f0;
+    }
+
+    input, button {
+      margin: 4px;
+      padding: 6px;
+      border-radius: 5px;
+      border: none;
+      outline: none;
+    }
+
+    input {
+      background: #2b0040;
+      color: white;
+    }
+
+    button {
+      background: #8000ff;
+      color: white;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #a020f0;
+    }
+  </style>
+</head>
+<body>
+  <div id="painelMestre" class="hidden">
+    <h2>Painel do Mestre</h2>
+    <input id="opcao1" placeholder="Opção de Cima" />
+    <input id="opcao2" placeholder="Opção de Baixo" />
+    <input id="tempo" type="number" placeholder="Tempo (segundos)" />
+    <button id="iniciar">Iniciar Votação</button>
+  </div>
+
+  <div id="jogo">
+    <div id="cima" class="quadrado"></div>
+    <div id="baixo" class="quadrado"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let nick = prompt("Digite seu nick (use 'Mestre' para o painel):");
+    socket.emit("registrar", nick);
+
+    const jogo = document.getElementById("jogo");
+    const cima = document.getElementById("cima");
+    const baixo = document.getElementById("baixo");
+    const painelMestre = document.getElementById("painelMestre");
+
+    socket.on("painelMestre", () => {
+      painelMestre.classList.remove("hidden");
+    });
+
+    socket.on("iniciarVotacao", (opcoes) => {
+      cima.innerHTML = `<h2>${opcoes[0]}</h2>`;
+      baixo.innerHTML = `<h2>${opcoes[1]}</h2>`;
+    });
+
+    socket.on("jogadores", (jogadores) => {
+      document.querySelectorAll(".minhoquinha, .nick").forEach(e => e.remove());
+      for (const [id, j] of Object.entries(jogadores)) {
+        const elem = document.createElement("div");
+        elem.className = "minhoquinha";
+        elem.style.background = j.cor;
+
+        const nickElem = document.createElement("div");
+        nickElem.className = "nick";
+        nickElem.textContent = j.nick;
+
+        const pai = j.posicao === "baixo" ? baixo : j.posicao === "cima" ? cima : null;
+        if (pai) {
+          const x = Math.random() * (pai.offsetWidth - 20);
+          const y = Math.random() * (pai.offsetHeight - 10);
+          elem.style.left = x + "px";
+          elem.style.top = y + "px";
+          nickElem.style.left = x + "px";
+          nickElem.style.top = y + "px";
+          pai.appendChild(elem);
+          pai.appendChild(nickElem);
+        }
+      }
+    });
+
+    socket.on("resultado", (resultado) => {
+      alert("Resultado: " + resultado);
+    });
+
+    cima.onclick = () => socket.emit("atualizarPosicao", "cima");
+    baixo.onclick = () => socket.emit("atualizarPosicao", "baixo");
+
+    document.getElementById("iniciar")?.addEventListener("click", () => {
+      const op1 = document.getElementById("opcao1").value;
+      const op2 = document.getElementById("opcao2").value;
+      const tempo = parseInt(document.getElementById("tempo").value);
+      socket.emit("novaVotacao", { opcoes: [op1, op2], tempo });
+    });
+  </script>
+</body>
+</html>

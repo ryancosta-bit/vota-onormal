@@ -92,6 +92,46 @@
     button:hover {
       background: #a020f0;
     }
+
+    /* Controles de toque (mobile e acessibilidade) */
+    #controles {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      z-index: 10;
+    }
+
+    .linha {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .seta {
+      width: 60px;
+      height: 60px;
+      background: rgba(100, 0, 150, 0.7);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 30px;
+      color: white;
+      text-shadow: 0 0 5px #a020f0;
+      border: 2px solid #a020f0;
+      box-shadow: 0 0 10px #6000a0;
+      user-select: none;
+    }
+
+    .seta:active {
+      background: #a020f0;
+      transform: scale(0.9);
+    }
   </style>
 </head>
 <body>
@@ -109,6 +149,16 @@
     <div id="timer">10</div>
   </div>
 
+  <!-- Controles de toque (para mobile e acessibilidade) -->
+  <div id="controles" class="hidden">
+    <div class="linha"><div class="seta" id="btnCima">▲</div></div>
+    <div class="linha">
+      <div class="seta" id="btnEsq">◀</div>
+      <div class="seta" id="btnDir">▶</div>
+    </div>
+    <div class="linha"><div class="seta" id="btnBaixo">▼</div></div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
@@ -122,25 +172,30 @@
     const timerDiv = document.getElementById("timer");
     const tituloCima = document.getElementById("tituloCima");
     const tituloBaixo = document.getElementById("tituloBaixo");
+    const controles = document.getElementById("controles");
+
+    if (!isMestre) {
+      controles.classList.remove("hidden");
+    }
 
     let jogadores = {};
     let direcao = { x: 0, y: 0 };
     let posicao = { x: 150, y: 150 };
-    let cobraCor = "#8000ff";
+    let cobraCor = "#" + Math.floor(Math.random() * 16777215).toString(16);
     let cobraEl = null, nickEl = null;
     let emBaixo = false;
     let areaAtual = cima;
 
-    // Mestre: mostra painel e ignora controles de jogador
+    // Painel do mestre
     socket.on("painelMestre", () => painelMestre.classList.remove("hidden"));
 
-    // Atualização de jogadores
+    // Atualiza lista de jogadores
     socket.on("jogadores", (dados) => {
       jogadores = dados;
       renderCobras();
     });
 
-    // Renderiza apenas jogadores (não o Mestre)
+    // Renderiza jogadores (sem o mestre)
     function renderCobras() {
       document.querySelectorAll(".cobraSegmento.remote, .nick.remote").forEach(e => e.remove());
       for (const [id, j] of Object.entries(jogadores)) {
@@ -161,7 +216,7 @@
       }
     }
 
-    // Timer da votação
+    // Timer
     socket.on("iniciarVotacao", (opcoes) => {
       tituloCima.textContent = opcoes[0];
       tituloBaixo.textContent = opcoes[1];
@@ -187,7 +242,7 @@
       }, 1000);
     }
 
-    // Criar cobrinha apenas se não for Mestre
+    // Criação da cobrinha
     function criarCobra() {
       if (isMestre || cobraEl) return;
       cobraEl = document.createElement("div");
@@ -200,7 +255,7 @@
       cima.appendChild(nickEl);
     }
 
-    // Controles de movimento (apenas players)
+    // Controles de movimento
     if (!isMestre) {
       document.addEventListener("keydown", (e) => {
         if (["w","a","s","d","ArrowUp","ArrowLeft","ArrowDown","ArrowRight"].includes(e.key)) {
@@ -211,20 +266,33 @@
           if (e.key === "d" || e.key === "ArrowRight") direcao = { x: 5, y: 0 };
         }
       });
+
+      const botoes = {
+        btnCima: { x: 0, y: -5 },
+        btnBaixo: { x: 0, y: 5 },
+        btnEsq: { x: -5, y: 0 },
+        btnDir: { x: 5, y: 0 }
+      };
+
+      Object.keys(botoes).forEach(id => {
+        const btn = document.getElementById(id);
+        btn.addEventListener("touchstart", () => direcao = botoes[id]);
+        btn.addEventListener("click", () => direcao = botoes[id]);
+      });
     }
 
-    // Loop de movimento + transição de blocos
+    // Movimento da cobrinha
     function moverCobra() {
-      if (isMestre) return; // mestre não tem cobrinha
-
+      if (isMestre) return;
       criarCobra();
+
       posicao.x += direcao.x;
       posicao.y += direcao.y;
 
       const limiteY = cima.clientHeight - 25;
       const limiteX = cima.clientWidth - 50;
 
-      // Transição entre blocos
+      // Troca de bloco
       if (!emBaixo && posicao.y > limiteY) {
         emBaixo = true;
         areaAtual = baixo;
@@ -265,11 +333,9 @@
 
     requestAnimationFrame(moverCobra);
 
-    // Mestre: visual prévia das opções
+    // Mestre: prévia e início
     document.getElementById("opcao1")?.addEventListener("input", (e) => tituloCima.textContent = e.target.value);
     document.getElementById("opcao2")?.addEventListener("input", (e) => tituloBaixo.textContent = e.target.value);
-
-    // Mestre: iniciar votação
     document.getElementById("iniciar")?.addEventListener("click", () => {
       const op1 = document.getElementById("opcao1").value;
       const op2 = document.getElementById("opcao2").value;

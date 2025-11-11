@@ -94,11 +94,11 @@
 
   <div id="jogo">
     <div id="cima" class="quadrado">
-      <div class="opcaoTitulo" id="tituloCima"></div>
+      <div class="opcaoTitulo" id="tituloCima">Opção 1</div>
       <div class="contador" id="contadorCima">0</div>
     </div>
     <div id="baixo" class="quadrado">
-      <div class="opcaoTitulo" id="tituloBaixo"></div>
+      <div class="opcaoTitulo" id="tituloBaixo">Opção 2</div>
       <div class="contador" id="contadorBaixo">0</div>
     </div>
   </div>
@@ -147,13 +147,28 @@
       socket.emit("limparSelecoes");
     });
 
+    // Mestre atualiza opções em tempo real
+    if(isMestre){
+      document.getElementById("opcao1").addEventListener("input", e=>{
+        const texto = e.target.value || "Opção 1";
+        tituloCima.textContent = texto;
+        socket.emit("atualizarTexto", {opcao:"cima", texto});
+      });
+      document.getElementById("opcao2").addEventListener("input", e=>{
+        const texto = e.target.value || "Opção 2";
+        tituloBaixo.textContent = texto;
+        socket.emit("atualizarTexto", {opcao:"baixo", texto});
+      });
+    }
+
+    socket.on("atualizarTexto", data=>{
+      if(data.opcao==="cima") tituloCima.textContent = data.texto;
+      if(data.opcao==="baixo") tituloBaixo.textContent = data.texto;
+    });
+
     // Jogador clica na área para escolher
-    cima.addEventListener("click", () => {
-      if(!isMestre) socket.emit("atualizarEscolha", "cima");
-    });
-    baixo.addEventListener("click", () => {
-      if(!isMestre) socket.emit("atualizarEscolha", "baixo");
-    });
+    cima.addEventListener("click", () => { if(!isMestre) socket.emit("atualizarEscolha", "cima"); });
+    baixo.addEventListener("click", () => { if(!isMestre) socket.emit("atualizarEscolha", "baixo"); });
 
     function atualizarContadores(){
       let countCima = 0, countBaixo = 0;
@@ -168,7 +183,6 @@
 
     function renderBolas() {
       [cima, baixo].forEach(e => e.querySelectorAll(".bola").forEach(b => b.remove()));
-
       for (const [id, j] of Object.entries(jogadores)) {
         if(j.nick.toLowerCase() === "mestre") continue;
         const area = j.escolha === "baixo" ? baixo : cima;
@@ -178,7 +192,6 @@
         bola.textContent = j.nick;
         bola.dataset.id = id;
         area.appendChild(bola);
-
         if(!j.x) j.x = Math.random()*(area.clientWidth-40);
         if(!j.y) j.y = Math.random()*(area.clientHeight-40);
         bola.style.left = j.x + "px";
@@ -186,7 +199,6 @@
       }
     }
 
-    // Movimento bolinhas
     function animar() {
       for (const [id, j] of Object.entries(jogadores)) {
         if(j.nick.toLowerCase() === "mestre") continue;
@@ -206,11 +218,8 @@
         if(j.x<0 || j.x>maxX) j.vx*=-1;
         if(j.y<0 || j.y>maxY) j.vy*=-1;
 
-        // Colisão simples
         for(const [id2,j2] of Object.entries(jogadores)){
           if(id===id2 || j2.nick.toLowerCase()==="mestre") continue;
-          const bola2 = document.querySelector(`.bola[data-id='${id2}']`);
-          if(!bola2) continue;
           const dx=j.x-j2.x, dy=j.y-j2.y;
           const dist=Math.sqrt(dx*dx+dy*dy);
           if(dist<40){ j.vx*=-1; j.vy*=-1; }

@@ -35,6 +35,7 @@
       border:2px solid #800080;
       overflow:hidden;
       border-radius:10px;
+      cursor:pointer;
     }
 
     .opcaoTitulo {
@@ -44,6 +45,15 @@
       transform:translateX(-50%);
       font-size:1.5rem;
       text-shadow:0 0 5px #a020f0;
+    }
+
+    .contador {
+      position:absolute;
+      top:5px;
+      right:10px;
+      font-size:1.2rem;
+      color:#ffd700;
+      text-shadow:0 0 3px black;
     }
 
     .bola {
@@ -57,7 +67,6 @@
       font-size:12px;
       color:white;
       text-shadow:0 0 3px black;
-      cursor:pointer;
     }
 
     button {
@@ -84,8 +93,14 @@
   </div>
 
   <div id="jogo">
-    <div id="cima" class="quadrado"><div class="opcaoTitulo" id="tituloCima"></div></div>
-    <div id="baixo" class="quadrado"><div class="opcaoTitulo" id="tituloBaixo"></div></div>
+    <div id="cima" class="quadrado">
+      <div class="opcaoTitulo" id="tituloCima"></div>
+      <div class="contador" id="contadorCima">0</div>
+    </div>
+    <div id="baixo" class="quadrado">
+      <div class="opcaoTitulo" id="tituloBaixo"></div>
+      <div class="contador" id="contadorBaixo">0</div>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -99,6 +114,8 @@
     const baixo = document.getElementById("baixo");
     const tituloCima = document.getElementById("tituloCima");
     const tituloBaixo = document.getElementById("tituloBaixo");
+    const contadorCima = document.getElementById("contadorCima");
+    const contadorBaixo = document.getElementById("contadorBaixo");
 
     socket.emit("registrar", nick);
 
@@ -109,18 +126,20 @@
     socket.on("jogadores", (dados) => {
       jogadores = dados;
       renderBolas();
+      atualizarContadores();
     });
 
     socket.on("iniciarVotacao", (data) => {
       tituloCima.textContent = data.opcoes[0];
       tituloBaixo.textContent = data.opcoes[1];
+      atualizarContadores();
     });
 
     // Mestre buttons
     document.getElementById("iniciar")?.addEventListener("click", () => {
-      const op1 = document.getElementById("opcao1").value;
-      const op2 = document.getElementById("opcao2").value;
-      const tempo = parseInt(document.getElementById("tempo").value);
+      const op1 = document.getElementById("opcao1").value || "Opção 1";
+      const op2 = document.getElementById("opcao2").value || "Opção 2";
+      const tempo = parseInt(document.getElementById("tempo").value) || 60;
       socket.emit("novaVotacao", {opcoes:[op1,op2],tempo});
     });
 
@@ -128,11 +147,30 @@
       socket.emit("limparSelecoes");
     });
 
+    // Jogador clica na área para escolher
+    cima.addEventListener("click", () => {
+      if(!isMestre) socket.emit("atualizarEscolha", "cima");
+    });
+    baixo.addEventListener("click", () => {
+      if(!isMestre) socket.emit("atualizarEscolha", "baixo");
+    });
+
+    function atualizarContadores(){
+      let countCima = 0, countBaixo = 0;
+      for(const j of Object.values(jogadores)){
+        if(j.nick.toLowerCase() === "mestre") continue;
+        if(j.escolha==="cima") countCima++;
+        if(j.escolha==="baixo") countBaixo++;
+      }
+      contadorCima.textContent = countCima;
+      contadorBaixo.textContent = countBaixo;
+    }
+
     function renderBolas() {
       [cima, baixo].forEach(e => e.querySelectorAll(".bola").forEach(b => b.remove()));
 
       for (const [id, j] of Object.entries(jogadores)) {
-        if (j.nick.toLowerCase() === "mestre") continue;
+        if(j.nick.toLowerCase() === "mestre") continue;
         const area = j.escolha === "baixo" ? baixo : cima;
         const bola = document.createElement("div");
         bola.className = "bola";
@@ -141,24 +179,19 @@
         bola.dataset.id = id;
         area.appendChild(bola);
 
-        // Posição aleatória inicial
-        if (!j.x) j.x = Math.random() * (area.clientWidth - 40);
-        if (!j.y) j.y = Math.random() * (area.clientHeight - 40);
+        if(!j.x) j.x = Math.random()*(area.clientWidth-40);
+        if(!j.y) j.y = Math.random()*(area.clientHeight-40);
         bola.style.left = j.x + "px";
         bola.style.top = j.y + "px";
-
-        // Clique/touch para escolher área
-        bola.addEventListener("click", () => socket.emit("atualizarEscolha", area===cima?"cima":"baixo"));
-        bola.addEventListener("touchstart", () => socket.emit("atualizarEscolha", area===cima?"cima":"baixo"));
       }
     }
 
     // Movimento bolinhas
     function animar() {
       for (const [id, j] of Object.entries(jogadores)) {
-        if (j.nick.toLowerCase() === "mestre") continue;
+        if(j.nick.toLowerCase() === "mestre") continue;
         const bola = document.querySelector(`.bola[data-id='${id}']`);
-        if (!bola) continue;
+        if(!bola) continue;
 
         j.vx = j.vx ?? (Math.random()*2-1)*2;
         j.vy = j.vy ?? (Math.random()*2-1)*2;
@@ -167,26 +200,24 @@
         j.y += j.vy;
 
         const area = j.escolha==="baixo"?baixo:cima;
-        const maxX = area.clientWidth - 40;
-        const maxY = area.clientHeight - 40;
+        const maxX = area.clientWidth-40;
+        const maxY = area.clientHeight-40;
 
-        if (j.x<0 || j.x>maxX) j.vx*=-1;
-        if (j.y<0 || j.y>maxY) j.vy*=-1;
+        if(j.x<0 || j.x>maxX) j.vx*=-1;
+        if(j.y<0 || j.y>maxY) j.vy*=-1;
 
-        // Colisão simples entre bolas
-        for (const [id2,j2] of Object.entries(jogadores)) {
+        // Colisão simples
+        for(const [id2,j2] of Object.entries(jogadores)){
           if(id===id2 || j2.nick.toLowerCase()==="mestre") continue;
           const bola2 = document.querySelector(`.bola[data-id='${id2}']`);
           if(!bola2) continue;
           const dx=j.x-j2.x, dy=j.y-j2.y;
-          const dist = Math.sqrt(dx*dx+dy*dy);
-          if(dist<40){
-            j.vx*=-1; j.vy*=-1;
-          }
+          const dist=Math.sqrt(dx*dx+dy*dy);
+          if(dist<40){ j.vx*=-1; j.vy*=-1; }
         }
 
-        bola.style.left = j.x + "px";
-        bola.style.top = j.y + "px";
+        bola.style.left = j.x+"px";
+        bola.style.top = j.y+"px";
       }
       requestAnimationFrame(animar);
     }

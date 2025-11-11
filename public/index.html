@@ -5,12 +5,13 @@
   <title>Votação Paranormal</title>
   <style>
     body {
-      background-color: #1a001a;
+      background-color: #110011;
       color: white;
       font-family: 'Poppins', sans-serif;
       text-align: center;
       margin: 0;
       overflow: hidden;
+      user-select: none;
     }
 
     .hidden { display: none; }
@@ -25,6 +26,7 @@
       display: flex;
       flex-direction: column;
       height: 90vh;
+      position: relative;
     }
 
     .quadrado {
@@ -36,22 +38,34 @@
     }
 
     .quadrado:hover {
-      background: rgba(128, 0, 128, 0.15);
+      background: rgba(128, 0, 128, 0.1);
     }
 
-    .minhoquinha {
+    .cobraSegmento {
       position: absolute;
-      width: 20px;
-      height: 10px;
-      border-radius: 10px;
+      width: 40px;
+      height: 20px;
+      border-radius: 8px;
+      transition: left 0.1s linear, top 0.1s linear;
     }
 
     .nick {
       position: absolute;
-      top: -18px;
-      font-size: 10px;
+      font-size: 12px;
       color: #d8b0ff;
       text-shadow: 0 0 5px #a020f0;
+      white-space: nowrap;
+    }
+
+    #timer {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 3rem;
+      color: #e5c9ff;
+      text-shadow: 0 0 15px #a020f0;
+      display: none;
     }
 
     input, button {
@@ -89,62 +103,156 @@
   </div>
 
   <div id="jogo">
-    <div id="cima" class="quadrado"></div>
-    <div id="baixo" class="quadrado"></div>
+    <div id="cima" class="quadrado"><h2 id="tituloCima"></h2></div>
+    <div id="baixo" class="quadrado"><h2 id="tituloBaixo"></h2></div>
+    <div id="timer">10</div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-    let nick = prompt("Digite seu nick (use 'Mestre' para o painel):");
+    const nick = prompt("Digite seu nick (use 'Mestre' para o painel):");
     socket.emit("registrar", nick);
 
-    const jogo = document.getElementById("jogo");
     const cima = document.getElementById("cima");
     const baixo = document.getElementById("baixo");
     const painelMestre = document.getElementById("painelMestre");
+    const timerDiv = document.getElementById("timer");
+    const tituloCima = document.getElementById("tituloCima");
+    const tituloBaixo = document.getElementById("tituloBaixo");
 
-    socket.on("painelMestre", () => {
-      painelMestre.classList.remove("hidden");
-    });
+    let jogadores = {};
+    let direcao = { x: 0, y: 0 };
+    let posicao = { x: 100, y: 100 };
+    let cobraCor = "#8000ff";
+    let cobraEl, nickEl;
+    let emBaixo = false;
+    let areaAtual = cima;
 
-    socket.on("iniciarVotacao", (opcoes) => {
-      cima.innerHTML = `<h2>${opcoes[0]}</h2>`;
-      baixo.innerHTML = `<h2>${opcoes[1]}</h2>`;
-    });
+    // 📜 Quando for mestre, mostra painel
+    socket.on("painelMestre", () => painelMestre.classList.remove("hidden"));
 
-    socket.on("jogadores", (jogadores) => {
-      document.querySelectorAll(".minhoquinha, .nick").forEach(e => e.remove());
+    // 📦 Atualização de jogadores
+    socket.on("jogadores", (dados) => jogadores = dados);
+
+    // 🧭 Cria/atualiza cobras na tela
+    function renderCobras() {
+      document.querySelectorAll(".cobraSegmento, .nick").forEach(e => e.remove());
       for (const [id, j] of Object.entries(jogadores)) {
-        const elem = document.createElement("div");
-        elem.className = "minhoquinha";
-        elem.style.background = j.cor;
-
-        const nickElem = document.createElement("div");
-        nickElem.className = "nick";
-        nickElem.textContent = j.nick;
-
         const pai = j.posicao === "baixo" ? baixo : j.posicao === "cima" ? cima : null;
-        if (pai) {
-          const x = Math.random() * (pai.offsetWidth - 20);
-          const y = Math.random() * (pai.offsetHeight - 10);
-          elem.style.left = x + "px";
-          elem.style.top = y + "px";
-          nickElem.style.left = x + "px";
-          nickElem.style.top = y + "px";
-          pai.appendChild(elem);
-          pai.appendChild(nickElem);
+        if (!pai) continue;
+        const corpo = document.createElement("div");
+        corpo.className = "cobraSegmento";
+        corpo.style.background = j.cor;
+        corpo.style.left = (j.x || 100) + "px";
+        corpo.style.top = (j.y || 100) + "px";
+        const nome = document.createElement("div");
+        nome.className = "nick";
+        nome.textContent = j.nick;
+        nome.style.left = (j.x || 100) + "px";
+        nome.style.top = ((j.y || 100) - 20) + "px";
+        pai.appendChild(corpo);
+        pai.appendChild(nome);
+      }
+    }
+
+    // 📡 Recebe nova votação
+    socket.on("iniciarVotacao", (opcoes) => {
+      tituloCima.textContent = opcoes[0];
+      tituloBaixo.textContent = opcoes[1];
+      startTimer(document.getElementById("tempo")?.value || 10);
+    });
+
+    // 📣 Mostra resultado
+    socket.on("resultado", (resultado) => {
+      alert("Resultado: " + resultado);
+      timerDiv.style.display = "none";
+    });
+
+    // 🎯 Timer central
+    function startTimer(segundos) {
+      let tempo = segundos;
+      timerDiv.style.display = "block";
+      timerDiv.textContent = tempo;
+      const interval = setInterval(() => {
+        tempo--;
+        timerDiv.textContent = tempo;
+        if (tempo <= 0) {
+          clearInterval(interval);
+          timerDiv.style.display = "none";
         }
+      }, 1000);
+    }
+
+    // ⌨️ Controle Snake (PC)
+    document.addEventListener("keydown", (e) => {
+      if (["w","a","s","d","ArrowUp","ArrowLeft","ArrowDown","ArrowRight"].includes(e.key)) {
+        e.preventDefault();
+        if (e.key === "w" || e.key === "ArrowUp") direcao = { x: 0, y: -5 };
+        if (e.key === "s" || e.key === "ArrowDown") direcao = { x: 0, y: 5 };
+        if (e.key === "a" || e.key === "ArrowLeft") direcao = { x: -5, y: 0 };
+        if (e.key === "d" || e.key === "ArrowRight") direcao = { x: 5, y: 0 };
       }
     });
 
-    socket.on("resultado", (resultado) => {
-      alert("Resultado: " + resultado);
+    // 📱 Toques para mobile (setas virtuais)
+    const botoes = ["⬆️","⬇️","⬅️","➡️"];
+    botoes.forEach(b => {
+      const btn = document.createElement("button");
+      btn.textContent = b;
+      btn.style.position = "fixed";
+      btn.style.bottom = b==="⬆️"? "80px" : b==="⬇️" ? "20px" : "50px";
+      btn.style.left = b==="⬅️"? "20px" : b==="➡️" ? "80px" : "50%";
+      btn.style.transform = "translateX(-50%)";
+      btn.style.opacity = "0.4";
+      btn.style.zIndex = 1000;
+      btn.style.borderRadius = "50%";
+      btn.style.padding = "10px";
+      btn.onclick = () => {
+        if (b==="⬆️") direcao = {x:0,y:-5};
+        if (b==="⬇️") direcao = {x:0,y:5};
+        if (b==="⬅️") direcao = {x:-5,y:0};
+        if (b==="➡️") direcao = {x:5,y:0};
+      };
+      document.body.appendChild(btn);
     });
 
-    cima.onclick = () => socket.emit("atualizarPosicao", "cima");
-    baixo.onclick = () => socket.emit("atualizarPosicao", "baixo");
+    // 🐍 Loop de movimento
+    function moverCobra() {
+      posicao.x += direcao.x;
+      posicao.y += direcao.y;
 
+      const limiteY = areaAtual.clientHeight - 20;
+      const limiteX = areaAtual.clientWidth - 40;
+      if (posicao.x < 0) posicao.x = 0;
+      if (posicao.x > limiteX) posicao.x = limiteX;
+      if (posicao.y < 0) posicao.y = 0;
+      if (posicao.y > limiteY) posicao.y = limiteY;
+
+      socket.emit("atualizarPosicao", emBaixo ? "baixo" : "cima");
+
+      jogadores[socket.id] = {
+        nick,
+        cor: cobraCor,
+        posicao: emBaixo ? "baixo" : "cima",
+        x: posicao.x,
+        y: posicao.y
+      };
+
+      renderCobras();
+      requestAnimationFrame(moverCobra);
+    }
+    requestAnimationFrame(moverCobra);
+
+    // 🖱️ Alterna posição (cima/baixo)
+    cima.onclick = () => { emBaixo = false; areaAtual = cima; socket.emit("atualizarPosicao", "cima"); };
+    baixo.onclick = () => { emBaixo = true; areaAtual = baixo; socket.emit("atualizarPosicao", "baixo"); };
+
+    // 🎛️ Mestre define opções
+    document.getElementById("opcao1")?.addEventListener("input", (e) => tituloCima.textContent = e.target.value);
+    document.getElementById("opcao2")?.addEventListener("input", (e) => tituloBaixo.textContent = e.target.value);
+
+    // 🚀 Mestre inicia votação
     document.getElementById("iniciar")?.addEventListener("click", () => {
       const op1 = document.getElementById("opcao1").value;
       const op2 = document.getElementById("opcao2").value;

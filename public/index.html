@@ -13,49 +13,30 @@
     overflow: hidden;
     user-select: none;
   }
-
-  .hidden { display: none; }
-
   #painelMestre {
     background-color: rgba(60, 0, 60, 0.7);
     padding: 10px;
     border-bottom: 2px solid #800080;
   }
-
   #jogo {
     display: flex;
     flex-direction: column;
     height: 90vh;
     position: relative;
-    gap: 10px;
-    padding: 10px;
+    margin: 10px;
   }
-
   .quadrado {
     flex: 1;
     border: 2px solid #800080;
     position: relative;
+    margin: 5px;
     overflow: hidden;
-    transition: background 0.3s ease;
-    border-radius: 15px;
+    border-radius: 10px;
   }
-
-  .quadrado:hover {
-    background: rgba(128, 0, 128, 0.1);
+  .quadrado h2 {
+    margin: 5px;
+    font-size: 1.5rem;
   }
-
-  .bolinha {
-    position: absolute;
-    border-radius: 50%;
-    color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-    cursor: pointer;
-    user-select: none;
-  }
-
   #timer {
     position: absolute;
     top: 50%;
@@ -67,7 +48,6 @@
     display: none;
     z-index: 5;
   }
-
   input, button {
     margin: 4px;
     padding: 6px;
@@ -75,31 +55,44 @@
     border: none;
     outline: none;
   }
-
   input {
     background: #2b0040;
     color: white;
   }
-
   button {
     background: #8000ff;
     color: white;
     cursor: pointer;
     transition: 0.3s;
   }
-
   button:hover {
     background: #a020f0;
+  }
+  .bolinha {
+    position: absolute;
+    border-radius: 50%;
+    background-color: #d8b0ff;
+    color: #110011;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    pointer-events: none;
   }
 </style>
 </head>
 <body>
 <div id="painelMestre" class="hidden">
   <h2>Painel do Mestre</h2>
-  <input id="opcao1" placeholder="Opção 1" />
-  <input id="opcao2" placeholder="Opção 2" />
+  <input id="opcao1" placeholder="Escolha 1" />
+  <input id="opcao2" placeholder="Escolha 2" />
   <input id="tempo" type="number" placeholder="Tempo (segundos)" />
   <button id="iniciar">Iniciar Votação</button>
+  <button id="limpar">Limpar Seleções</button>
 </div>
 
 <div id="jogo">
@@ -122,60 +115,41 @@ const timerDiv = document.getElementById("timer");
 const tituloCima = document.getElementById("tituloCima");
 const tituloBaixo = document.getElementById("tituloBaixo");
 
-if (isMestre) {
-  painelMestre.classList.remove("hidden");
+if(isMestre) painelMestre.classList.remove("hidden");
+
+let votos = {}; // {socketId: {nick, escolha, x, y, vx, vy, el, cor}}
+let opcaoSelecionada = null;
+
+const cores = {};
+function corAleatoria(id) {
+  if(!cores[id]) cores[id] = "#" + Math.floor(Math.random()*16777215).toString(16);
+  return cores[id];
 }
 
-// Armazena as bolinhas dos jogadores
-let jogadores = {};
-
-// Atualiza a lista de jogadores e renderiza bolinhas
-socket.on("jogadores", (dados) => {
-  jogadores = dados;
-  renderBolinhas();
+// Mestre inicia votação
+document.getElementById("iniciar")?.addEventListener("click", () => {
+  const op1 = document.getElementById("opcao1").value;
+  const op2 = document.getElementById("opcao2").value;
+  const tempo = parseInt(document.getElementById("tempo").value);
+  socket.emit("novaVotacao", { opcoes: [op1, op2], tempo });
 });
 
-function renderBolinhas() {
-  document.querySelectorAll(".bolinha").forEach(b => b.remove());
+// Mestre limpa seleções
+document.getElementById("limpar")?.addEventListener("click", ()=>{
+  socket.emit("limparVotos");
+});
 
-  for (const [id, j] of Object.entries(jogadores)) {
-    if (j.nick.toLowerCase() === "mestre") continue;
-
-    // Cria bolinha
-    const bolinha = document.createElement("div");
-    bolinha.className = "bolinha";
-    bolinha.style.background = j.cor || "#"+Math.floor(Math.random()*16777215).toString(16);
-    bolinha.textContent = j.nick;
-    bolinha.style.width = "60px";
-    bolinha.style.height = "60px";
-
-    // Define posição inicial aleatória dentro da área
-    const area = j.voto === "baixo" ? baixo : cima;
-    const maxX = area.clientWidth - 60;
-    const maxY = area.clientHeight - 60;
-    bolinha.x = j.x ?? Math.random()*maxX;
-    bolinha.y = j.y ?? Math.random()*maxY;
-    bolinha.vx = j.vx ?? (Math.random()*4-2);
-    bolinha.vy = j.vy ?? (Math.random()*4-2);
-
-    bolinha.style.left = bolinha.x + "px";
-    bolinha.style.top = bolinha.y + "px";
-    area.appendChild(bolinha);
-  }
-}
-
-// Timer
+// Recebe votação nova
 socket.on("iniciarVotacao", (opcoes) => {
   tituloCima.textContent = opcoes[0];
   tituloBaixo.textContent = opcoes[1];
-  startTimer(document.getElementById("tempo")?.value || 10);
+  votos = {};
+  startTimer(opcoes.tempo || 10);
+  cima.innerHTML = "<h2>"+opcoes[0]+"</h2>";
+  baixo.innerHTML = "<h2>"+opcoes[1]+"</h2>";
 });
 
-socket.on("resultado", (resultado) => {
-  alert("Resultado: " + resultado);
-  timerDiv.style.display = "none";
-});
-
+// Contador
 function startTimer(segundos) {
   let tempo = segundos;
   timerDiv.style.display = "block";
@@ -183,68 +157,94 @@ function startTimer(segundos) {
   const interval = setInterval(() => {
     tempo--;
     timerDiv.textContent = tempo;
-    if (tempo <= 0) {
+    if(tempo <= 0){
       clearInterval(interval);
       timerDiv.style.display = "none";
     }
   }, 1000);
 }
 
-// Clique nas áreas para votar
-function votar(area) {
-  if (isMestre) return;
-  socket.emit("votar", area.id);
+// Criar ou atualizar bolinha
+function criarBolinha(id, nick, escolha){
+  let v = votos[id];
+  if(!v){
+    const bol = document.createElement("div");
+    bol.className = "bolinha";
+    bol.textContent = nick;
+    bol.style.background = corAleatoria(id);
+    const area = escolha === "cima" ? cima : baixo;
+    const rect = area.getBoundingClientRect();
+    const x = Math.random() * (rect.width - 50);
+    const y = Math.random() * (rect.height - 50);
+    area.appendChild(bol);
+    votos[id] = {nick, escolha, x, y, vx: Math.random()*6-3, vy: Math.random()*6-3, el: bol, cor: corAleatoria(id)};
+  } else {
+    // atualizar escolha
+    if(v.escolha !== escolha){
+      // mover elemento para a nova área
+      const area = escolha === "cima" ? cima : baixo;
+      area.appendChild(v.el);
+      const rect = area.getBoundingClientRect();
+      v.x = Math.random() * (rect.width - 50);
+      v.y = Math.random() * (rect.height - 50);
+      v.vx = Math.random()*6-3;
+      v.vy = Math.random()*6-3;
+      v.escolha = escolha;
+    }
+  }
 }
 
-cima.addEventListener("click", () => votar(cima));
-baixo.addEventListener("click", () => votar(baixo));
+// Clique para votar
+function votar(escolha){
+  opcaoSelecionada = escolha;
+  socket.emit("votar", escolha);
+}
 
-// Movimento das bolinhas com colisão
-function animarBolinhas() {
-  document.querySelectorAll(".bolinha").forEach(b => {
-    const area = b.parentElement;
-    const maxX = area.clientWidth - parseInt(b.style.width);
-    const maxY = area.clientHeight - parseInt(b.style.height);
+// Eventos de clique
+cima.addEventListener("click", ()=>votar("cima"));
+baixo.addEventListener("click", ()=>votar("baixo"));
 
-    b.x += b.vx;
-    b.y += b.vy;
+// Recebe votos atualizados do servidor
+socket.on("votosAtualizados", (dados)=>{
+  for(const [id, v] of Object.entries(dados)){
+    criarBolinha(id, v.nick, v.escolha);
+  }
+});
 
+// Animação das bolinhas
+function animar(){
+  for(const v of Object.values(votos)){
+    const area = v.escolha === "cima" ? cima : baixo;
+    const rect = area.getBoundingClientRect();
+    v.x += v.vx;
+    v.y += v.vy;
     // Colisão com paredes
-    if (b.x < 0 || b.x > maxX) b.vx *= -1;
-    if (b.y < 0 || b.y > maxY) b.vy *= -1;
-
-    // Colisão entre bolinhas
-    document.querySelectorAll(".bolinha").forEach(o => {
-      if (o === b) return;
-      const dx = b.x - o.x;
-      const dy = b.y - o.y;
+    if(v.x < 0 || v.x > rect.width - 50) v.vx *= -1;
+    if(v.y < 0 || v.y > rect.height - 50) v.vy *= -1;
+    // Colisão simples
+    for(const u of Object.values(votos)){
+      if(u===v) continue;
+      const dx = (v.x+25) - (u.x+25);
+      const dy = (v.y+25) - (u.y+25);
       const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist < 60) { // diametro da bolinha
-        // simples troca de direção
-        b.vx *= -1;
-        b.vy *= -1;
-        o.vx *= -1;
-        o.vy *= -1;
+      if(dist < 50){
+        v.vx = -v.vx;
+        v.vy = -v.vy;
       }
-    });
-
-    b.style.left = b.x + "px";
-    b.style.top = b.y + "px";
-  });
-
-  requestAnimationFrame(animarBolinhas);
+    }
+    v.el.style.left = v.x + "px";
+    v.el.style.top = v.y + "px";
+  }
+  requestAnimationFrame(animar);
 }
+requestAnimationFrame(animar);
 
-requestAnimationFrame(animarBolinhas);
-
-// Mestre: prévia e início
-document.getElementById("opcao1")?.addEventListener("input", (e) => tituloCima.textContent = e.target.value);
-document.getElementById("opcao2")?.addEventListener("input", (e) => tituloBaixo.textContent = e.target.value);
-document.getElementById("iniciar")?.addEventListener("click", () => {
-  const op1 = document.getElementById("opcao1").value;
-  const op2 = document.getElementById("opcao2").value;
-  const tempo = parseInt(document.getElementById("tempo").value);
-  socket.emit("novaVotacao", { opcoes: [op1, op2], tempo });
+// Recebe resultado final
+socket.on("resultado", (resultado)=>{
+  alert("Resultado: " + resultado);
+  votos = {};
+  cima.innerHTML = "<h2>"+tituloCima.textContent+"</h2>";
+  baixo.innerHTML = "<h2>"+tituloBaixo.textContent+"</h2>";
 });
 </script>
 </body>

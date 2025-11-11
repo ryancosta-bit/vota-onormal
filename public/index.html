@@ -1,348 +1,251 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Votação Paranormal</title>
-  <style>
-    body {
-      background-color: #110011;
-      color: white;
-      font-family: 'Poppins', sans-serif;
-      text-align: center;
-      margin: 0;
-      overflow: hidden;
-      user-select: none;
-    }
+<meta charset="UTF-8" />
+<title>Votação Paranormal</title>
+<style>
+  body {
+    background-color: #110011;
+    color: white;
+    font-family: 'Poppins', sans-serif;
+    text-align: center;
+    margin: 0;
+    overflow: hidden;
+    user-select: none;
+  }
 
-    .hidden { display: none; }
+  .hidden { display: none; }
 
-    #painelMestre {
-      background-color: rgba(60, 0, 60, 0.7);
-      padding: 10px;
-      border-bottom: 2px solid #800080;
-    }
+  #painelMestre {
+    background-color: rgba(60, 0, 60, 0.7);
+    padding: 10px;
+    border-bottom: 2px solid #800080;
+  }
 
-    #jogo {
-      display: flex;
-      flex-direction: column;
-      height: 90vh;
-      position: relative;
-    }
+  #jogo {
+    display: flex;
+    flex-direction: column;
+    height: 90vh;
+    position: relative;
+    gap: 10px;
+    padding: 10px;
+  }
 
-    .quadrado {
-      flex: 1;
-      border: 2px solid #800080;
-      position: relative;
-      overflow: hidden;
-      transition: background 0.3s ease;
-    }
+  .quadrado {
+    flex: 1;
+    border: 2px solid #800080;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.3s ease;
+    border-radius: 15px;
+  }
 
-    .quadrado:hover {
-      background: rgba(128, 0, 128, 0.1);
-    }
+  .quadrado:hover {
+    background: rgba(128, 0, 128, 0.1);
+  }
 
-    .cobraSegmento {
-      position: absolute;
-      width: 50px;
-      height: 25px;
-      border-radius: 10px;
-      transition: left 0.05s linear, top 0.05s linear;
-    }
+  .bolinha {
+    position: absolute;
+    border-radius: 50%;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+  }
 
-    .nick {
-      position: absolute;
-      font-size: 12px;
-      color: #d8b0ff;
-      text-shadow: 0 0 5px #a020f0;
-      white-space: nowrap;
-    }
+  #timer {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3rem;
+    color: #e5c9ff;
+    text-shadow: 0 0 15px #a020f0;
+    display: none;
+    z-index: 5;
+  }
 
-    #timer {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 3rem;
-      color: #e5c9ff;
-      text-shadow: 0 0 15px #a020f0;
-      display: none;
-      z-index: 5;
-    }
+  input, button {
+    margin: 4px;
+    padding: 6px;
+    border-radius: 5px;
+    border: none;
+    outline: none;
+  }
 
-    input, button {
-      margin: 4px;
-      padding: 6px;
-      border-radius: 5px;
-      border: none;
-      outline: none;
-    }
+  input {
+    background: #2b0040;
+    color: white;
+  }
 
-    input {
-      background: #2b0040;
-      color: white;
-    }
+  button {
+    background: #8000ff;
+    color: white;
+    cursor: pointer;
+    transition: 0.3s;
+  }
 
-    button {
-      background: #8000ff;
-      color: white;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-
-    button:hover {
-      background: #a020f0;
-    }
-
-    /* Controles de toque (mobile e acessibilidade) */
-    #controles {
-      position: absolute;
-      bottom: 10px;
-      left: 20%;
-      transform: translateX(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-      z-index: 10;
-    }
-
-    .linha {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-    }
-
-    .seta {
-      width: 60px;
-      height: 60px;
-      background: rgba(100, 0, 150, 0.7);
-      border-radius: 50%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 30px;
-      color: white;
-      text-shadow: 0 0 5px #a020f0;
-      border: 2px solid #a020f0;
-      box-shadow: 0 0 10px #6000a0;
-      user-select: none;
-    }
-
-    .seta:active {
-      background: #a020f0;
-      transform: scale(0.9);
-    }
-  </style>
+  button:hover {
+    background: #a020f0;
+  }
+</style>
 </head>
 <body>
-  <div id="painelMestre" class="hidden">
-    <h2>Painel do Mestre</h2>
-    <input id="opcao1" placeholder="Opção de Cima" />
-    <input id="opcao2" placeholder="Opção de Baixo" />
-    <input id="tempo" type="number" placeholder="Tempo (segundos)" />
-    <button id="iniciar">Iniciar Votação</button>
-  </div>
+<div id="painelMestre" class="hidden">
+  <h2>Painel do Mestre</h2>
+  <input id="opcao1" placeholder="Opção 1" />
+  <input id="opcao2" placeholder="Opção 2" />
+  <input id="tempo" type="number" placeholder="Tempo (segundos)" />
+  <button id="iniciar">Iniciar Votação</button>
+</div>
 
-  <div id="jogo">
-    <div id="cima" class="quadrado"><h2 id="tituloCima"></h2></div>
-    <div id="baixo" class="quadrado"><h2 id="tituloBaixo"></h2></div>
-    <div id="timer">10</div>
-  </div>
+<div id="jogo">
+  <div id="cima" class="quadrado"><h2 id="tituloCima"></h2></div>
+  <div id="baixo" class="quadrado"><h2 id="tituloBaixo"></h2></div>
+  <div id="timer">10</div>
+</div>
 
-  <!-- Controles de toque (para mobile e acessibilidade) -->
-  <div id="controles" class="hidden">
-    <div class="linha"><div class="seta" id="btnCima">▲</div></div>
-    <div class="linha">
-      <div class="seta" id="btnEsq">◀</div>
-      <div class="seta" id="btnDir">▶</div>
-    </div>
-    <div class="linha"><div class="seta" id="btnBaixo">▼</div></div>
-  </div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const nick = prompt("Digite seu nick (use 'Mestre' para o painel):");
+const isMestre = nick.toLowerCase() === "mestre";
+socket.emit("registrar", nick);
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const nick = prompt("Digite seu nick (use 'Mestre' para o painel):");
-    const isMestre = nick.toLowerCase() === "mestre";
-    socket.emit("registrar", nick);
+const cima = document.getElementById("cima");
+const baixo = document.getElementById("baixo");
+const painelMestre = document.getElementById("painelMestre");
+const timerDiv = document.getElementById("timer");
+const tituloCima = document.getElementById("tituloCima");
+const tituloBaixo = document.getElementById("tituloBaixo");
 
-    const cima = document.getElementById("cima");
-    const baixo = document.getElementById("baixo");
-    const painelMestre = document.getElementById("painelMestre");
-    const timerDiv = document.getElementById("timer");
-    const tituloCima = document.getElementById("tituloCima");
-    const tituloBaixo = document.getElementById("tituloBaixo");
-    const controles = document.getElementById("controles");
+if (isMestre) {
+  painelMestre.classList.remove("hidden");
+}
 
-    if (!isMestre) {
-      controles.classList.remove("hidden");
-    }
+// Armazena as bolinhas dos jogadores
+let jogadores = {};
 
-    let jogadores = {};
-    let direcao = { x: 0, y: 0 };
-    let posicao = { x: 150, y: 150 };
-    let cobraCor = "#" + Math.floor(Math.random() * 16777215).toString(16);
-    let cobraEl = null, nickEl = null;
-    let emBaixo = false;
-    let areaAtual = cima;
+// Atualiza a lista de jogadores e renderiza bolinhas
+socket.on("jogadores", (dados) => {
+  jogadores = dados;
+  renderBolinhas();
+});
 
-    // Painel do mestre
-    socket.on("painelMestre", () => painelMestre.classList.remove("hidden"));
+function renderBolinhas() {
+  document.querySelectorAll(".bolinha").forEach(b => b.remove());
 
-    // Atualiza lista de jogadores
-    socket.on("jogadores", (dados) => {
-      jogadores = dados;
-      renderCobras();
-    });
+  for (const [id, j] of Object.entries(jogadores)) {
+    if (j.nick.toLowerCase() === "mestre") continue;
 
-    // Renderiza jogadores (sem o mestre)
-    function renderCobras() {
-      document.querySelectorAll(".cobraSegmento.remote, .nick.remote").forEach(e => e.remove());
-      for (const [id, j] of Object.entries(jogadores)) {
-        if (id === socket.id || j.nick.toLowerCase() === "mestre") continue;
-        const pai = j.posicao === "baixo" ? baixo : cima;
-        const corpo = document.createElement("div");
-        corpo.className = "cobraSegmento remote";
-        corpo.style.background = j.cor;
-        corpo.style.left = (j.x || 100) + "px";
-        corpo.style.top = (j.y || 100) + "px";
-        const nome = document.createElement("div");
-        nome.className = "nick remote";
-        nome.textContent = j.nick;
-        nome.style.left = (j.x || 100) + "px";
-        nome.style.top = ((j.y || 100) - 20) + "px";
-        pai.appendChild(corpo);
-        pai.appendChild(nome);
-      }
-    }
+    // Cria bolinha
+    const bolinha = document.createElement("div");
+    bolinha.className = "bolinha";
+    bolinha.style.background = j.cor || "#"+Math.floor(Math.random()*16777215).toString(16);
+    bolinha.textContent = j.nick;
+    bolinha.style.width = "60px";
+    bolinha.style.height = "60px";
 
-    // Timer
-    socket.on("iniciarVotacao", (opcoes) => {
-      tituloCima.textContent = opcoes[0];
-      tituloBaixo.textContent = opcoes[1];
-      startTimer(document.getElementById("tempo")?.value || 10);
-    });
+    // Define posição inicial aleatória dentro da área
+    const area = j.voto === "baixo" ? baixo : cima;
+    const maxX = area.clientWidth - 60;
+    const maxY = area.clientHeight - 60;
+    bolinha.x = j.x ?? Math.random()*maxX;
+    bolinha.y = j.y ?? Math.random()*maxY;
+    bolinha.vx = j.vx ?? (Math.random()*4-2);
+    bolinha.vy = j.vy ?? (Math.random()*4-2);
 
-    socket.on("resultado", (resultado) => {
-      alert("Resultado: " + resultado);
+    bolinha.style.left = bolinha.x + "px";
+    bolinha.style.top = bolinha.y + "px";
+    area.appendChild(bolinha);
+  }
+}
+
+// Timer
+socket.on("iniciarVotacao", (opcoes) => {
+  tituloCima.textContent = opcoes[0];
+  tituloBaixo.textContent = opcoes[1];
+  startTimer(document.getElementById("tempo")?.value || 10);
+});
+
+socket.on("resultado", (resultado) => {
+  alert("Resultado: " + resultado);
+  timerDiv.style.display = "none";
+});
+
+function startTimer(segundos) {
+  let tempo = segundos;
+  timerDiv.style.display = "block";
+  timerDiv.textContent = tempo;
+  const interval = setInterval(() => {
+    tempo--;
+    timerDiv.textContent = tempo;
+    if (tempo <= 0) {
+      clearInterval(interval);
       timerDiv.style.display = "none";
-    });
-
-    function startTimer(segundos) {
-      let tempo = segundos;
-      timerDiv.style.display = "block";
-      timerDiv.textContent = tempo;
-      const interval = setInterval(() => {
-        tempo--;
-        timerDiv.textContent = tempo;
-        if (tempo <= 0) {
-          clearInterval(interval);
-          timerDiv.style.display = "none";
-        }
-      }, 1000);
     }
+  }, 1000);
+}
 
-    // Criação da cobrinha
-    function criarCobra() {
-      if (isMestre || cobraEl) return;
-      cobraEl = document.createElement("div");
-      cobraEl.className = "cobraSegmento";
-      cobraEl.style.background = cobraCor;
-      nickEl = document.createElement("div");
-      nickEl.className = "nick";
-      nickEl.textContent = nick;
-      cima.appendChild(cobraEl);
-      cima.appendChild(nickEl);
-    }
+// Clique nas áreas para votar
+function votar(area) {
+  if (isMestre) return;
+  socket.emit("votar", area.id);
+}
 
-    // Controles de movimento
-    if (!isMestre) {
-      document.addEventListener("keydown", (e) => {
-        if (["w","a","s","d","ArrowUp","ArrowLeft","ArrowDown","ArrowRight"].includes(e.key)) {
-          e.preventDefault();
-          if (e.key === "w" || e.key === "ArrowUp") direcao = { x: 0, y: -5 };
-          if (e.key === "s" || e.key === "ArrowDown") direcao = { x: 0, y: 5 };
-          if (e.key === "a" || e.key === "ArrowLeft") direcao = { x: -5, y: 0 };
-          if (e.key === "d" || e.key === "ArrowRight") direcao = { x: 5, y: 0 };
-        }
-      });
+cima.addEventListener("click", () => votar(cima));
+baixo.addEventListener("click", () => votar(baixo));
 
-      const botoes = {
-        btnCima: { x: 0, y: -5 },
-        btnBaixo: { x: 0, y: 5 },
-        btnEsq: { x: -5, y: 0 },
-        btnDir: { x: 5, y: 0 }
-      };
+// Movimento das bolinhas com colisão
+function animarBolinhas() {
+  document.querySelectorAll(".bolinha").forEach(b => {
+    const area = b.parentElement;
+    const maxX = area.clientWidth - parseInt(b.style.width);
+    const maxY = area.clientHeight - parseInt(b.style.height);
 
-      Object.keys(botoes).forEach(id => {
-        const btn = document.getElementById(id);
-        btn.addEventListener("touchstart", () => direcao = botoes[id]);
-        btn.addEventListener("click", () => direcao = botoes[id]);
-      });
-    }
+    b.x += b.vx;
+    b.y += b.vy;
 
-    // Movimento da cobrinha
-    function moverCobra() {
-      if (isMestre) return;
-      criarCobra();
+    // Colisão com paredes
+    if (b.x < 0 || b.x > maxX) b.vx *= -1;
+    if (b.y < 0 || b.y > maxY) b.vy *= -1;
 
-      posicao.x += direcao.x;
-      posicao.y += direcao.y;
-
-      const limiteY = cima.clientHeight - 25;
-      const limiteX = cima.clientWidth - 50;
-
-      // Troca de bloco
-      if (!emBaixo && posicao.y > limiteY) {
-        emBaixo = true;
-        areaAtual = baixo;
-        cima.removeChild(cobraEl);
-        cima.removeChild(nickEl);
-        baixo.appendChild(cobraEl);
-        baixo.appendChild(nickEl);
-      } else if (emBaixo && posicao.y < 0) {
-        emBaixo = false;
-        areaAtual = cima;
-        baixo.removeChild(cobraEl);
-        baixo.removeChild(nickEl);
-        cima.appendChild(cobraEl);
-        cima.appendChild(nickEl);
+    // Colisão entre bolinhas
+    document.querySelectorAll(".bolinha").forEach(o => {
+      if (o === b) return;
+      const dx = b.x - o.x;
+      const dy = b.y - o.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 60) { // diametro da bolinha
+        // simples troca de direção
+        b.vx *= -1;
+        b.vy *= -1;
+        o.vx *= -1;
+        o.vy *= -1;
       }
-
-      // Limites laterais
-      if (posicao.x < 0) posicao.x = 0;
-      if (posicao.x > limiteX) posicao.x = limiteX;
-
-      cobraEl.style.left = posicao.x + "px";
-      cobraEl.style.top = posicao.y + "px";
-      nickEl.style.left = posicao.x + "px";
-      nickEl.style.top = (posicao.y - 20) + "px";
-
-      socket.emit("atualizarPosicao", emBaixo ? "baixo" : "cima");
-
-      jogadores[socket.id] = {
-        nick,
-        cor: cobraCor,
-        posicao: emBaixo ? "baixo" : "cima",
-        x: posicao.x,
-        y: posicao.y
-      };
-
-      requestAnimationFrame(moverCobra);
-    }
-
-    requestAnimationFrame(moverCobra);
-
-    // Mestre: prévia e início
-    document.getElementById("opcao1")?.addEventListener("input", (e) => tituloCima.textContent = e.target.value);
-    document.getElementById("opcao2")?.addEventListener("input", (e) => tituloBaixo.textContent = e.target.value);
-    document.getElementById("iniciar")?.addEventListener("click", () => {
-      const op1 = document.getElementById("opcao1").value;
-      const op2 = document.getElementById("opcao2").value;
-      const tempo = parseInt(document.getElementById("tempo").value);
-      socket.emit("novaVotacao", { opcoes: [op1, op2], tempo });
     });
-  </script>
+
+    b.style.left = b.x + "px";
+    b.style.top = b.y + "px";
+  });
+
+  requestAnimationFrame(animarBolinhas);
+}
+
+requestAnimationFrame(animarBolinhas);
+
+// Mestre: prévia e início
+document.getElementById("opcao1")?.addEventListener("input", (e) => tituloCima.textContent = e.target.value);
+document.getElementById("opcao2")?.addEventListener("input", (e) => tituloBaixo.textContent = e.target.value);
+document.getElementById("iniciar")?.addEventListener("click", () => {
+  const op1 = document.getElementById("opcao1").value;
+  const op2 = document.getElementById("opcao2").value;
+  const tempo = parseInt(document.getElementById("tempo").value);
+  socket.emit("novaVotacao", { opcoes: [op1, op2], tempo });
+});
+</script>
 </body>
 </html>
-

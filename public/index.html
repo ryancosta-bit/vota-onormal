@@ -43,10 +43,10 @@
 
     .cobraSegmento {
       position: absolute;
-      width: 40px;
-      height: 20px;
-      border-radius: 8px;
-      transition: left 0.1s linear, top 0.1s linear;
+      width: 50px;
+      height: 25px;
+      border-radius: 10px;
+      transition: left 0.05s linear, top 0.05s linear;
     }
 
     .nick {
@@ -66,6 +66,7 @@
       color: #e5c9ff;
       text-shadow: 0 0 15px #a020f0;
       display: none;
+      z-index: 5;
     }
 
     input, button {
@@ -112,6 +113,7 @@
   <script>
     const socket = io();
     const nick = prompt("Digite seu nick (use 'Mestre' para o painel):");
+    const isMestre = nick.toLowerCase() === "mestre";
     socket.emit("registrar", nick);
 
     const cima = document.getElementById("cima");
@@ -123,31 +125,34 @@
 
     let jogadores = {};
     let direcao = { x: 0, y: 0 };
-    let posicao = { x: 100, y: 100 };
+    let posicao = { x: 150, y: 150 };
     let cobraCor = "#8000ff";
-    let cobraEl, nickEl;
+    let cobraEl = null, nickEl = null;
     let emBaixo = false;
     let areaAtual = cima;
 
-    // 📜 Quando for mestre, mostra painel
+    // Mestre: mostra painel e ignora controles de jogador
     socket.on("painelMestre", () => painelMestre.classList.remove("hidden"));
 
-    // 📦 Atualização de jogadores
-    socket.on("jogadores", (dados) => jogadores = dados);
+    // Atualização de jogadores
+    socket.on("jogadores", (dados) => {
+      jogadores = dados;
+      renderCobras();
+    });
 
-    // 🧭 Cria/atualiza cobras na tela
+    // Renderiza apenas jogadores (não o Mestre)
     function renderCobras() {
-      document.querySelectorAll(".cobraSegmento, .nick").forEach(e => e.remove());
+      document.querySelectorAll(".cobraSegmento.remote, .nick.remote").forEach(e => e.remove());
       for (const [id, j] of Object.entries(jogadores)) {
-        const pai = j.posicao === "baixo" ? baixo : j.posicao === "cima" ? cima : null;
-        if (!pai) continue;
+        if (id === socket.id || j.nick.toLowerCase() === "mestre") continue;
+        const pai = j.posicao === "baixo" ? baixo : cima;
         const corpo = document.createElement("div");
-        corpo.className = "cobraSegmento";
+        corpo.className = "cobraSegmento remote";
         corpo.style.background = j.cor;
         corpo.style.left = (j.x || 100) + "px";
         corpo.style.top = (j.y || 100) + "px";
         const nome = document.createElement("div");
-        nome.className = "nick";
+        nome.className = "nick remote";
         nome.textContent = j.nick;
         nome.style.left = (j.x || 100) + "px";
         nome.style.top = ((j.y || 100) - 20) + "px";
@@ -156,20 +161,18 @@
       }
     }
 
-    // 📡 Recebe nova votação
+    // Timer da votação
     socket.on("iniciarVotacao", (opcoes) => {
       tituloCima.textContent = opcoes[0];
       tituloBaixo.textContent = opcoes[1];
       startTimer(document.getElementById("tempo")?.value || 10);
     });
 
-    // 📣 Mostra resultado
     socket.on("resultado", (resultado) => {
       alert("Resultado: " + resultado);
       timerDiv.style.display = "none";
     });
 
-    // 🎯 Timer central
     function startTimer(segundos) {
       let tempo = segundos;
       timerDiv.style.display = "block";
@@ -184,50 +187,68 @@
       }, 1000);
     }
 
-    // ⌨️ Controle Snake (PC)
-    document.addEventListener("keydown", (e) => {
-      if (["w","a","s","d","ArrowUp","ArrowLeft","ArrowDown","ArrowRight"].includes(e.key)) {
-        e.preventDefault();
-        if (e.key === "w" || e.key === "ArrowUp") direcao = { x: 0, y: -5 };
-        if (e.key === "s" || e.key === "ArrowDown") direcao = { x: 0, y: 5 };
-        if (e.key === "a" || e.key === "ArrowLeft") direcao = { x: -5, y: 0 };
-        if (e.key === "d" || e.key === "ArrowRight") direcao = { x: 5, y: 0 };
-      }
-    });
+    // Criar cobrinha apenas se não for Mestre
+    function criarCobra() {
+      if (isMestre || cobraEl) return;
+      cobraEl = document.createElement("div");
+      cobraEl.className = "cobraSegmento";
+      cobraEl.style.background = cobraCor;
+      nickEl = document.createElement("div");
+      nickEl.className = "nick";
+      nickEl.textContent = nick;
+      cima.appendChild(cobraEl);
+      cima.appendChild(nickEl);
+    }
 
-    // 📱 Toques para mobile (setas virtuais)
-    const botoes = ["⬆️","⬇️","⬅️","➡️"];
-    botoes.forEach(b => {
-      const btn = document.createElement("button");
-      btn.textContent = b;
-      btn.style.position = "fixed";
-      btn.style.bottom = b==="⬆️"? "80px" : b==="⬇️" ? "20px" : "50px";
-      btn.style.left = b==="⬅️"? "20px" : b==="➡️" ? "80px" : "50%";
-      btn.style.transform = "translateX(-50%)";
-      btn.style.opacity = "0.4";
-      btn.style.zIndex = 1000;
-      btn.style.borderRadius = "50%";
-      btn.style.padding = "10px";
-      btn.onclick = () => {
-        if (b==="⬆️") direcao = {x:0,y:-5};
-        if (b==="⬇️") direcao = {x:0,y:5};
-        if (b==="⬅️") direcao = {x:-5,y:0};
-        if (b==="➡️") direcao = {x:5,y:0};
-      };
-      document.body.appendChild(btn);
-    });
+    // Controles de movimento (apenas players)
+    if (!isMestre) {
+      document.addEventListener("keydown", (e) => {
+        if (["w","a","s","d","ArrowUp","ArrowLeft","ArrowDown","ArrowRight"].includes(e.key)) {
+          e.preventDefault();
+          if (e.key === "w" || e.key === "ArrowUp") direcao = { x: 0, y: -5 };
+          if (e.key === "s" || e.key === "ArrowDown") direcao = { x: 0, y: 5 };
+          if (e.key === "a" || e.key === "ArrowLeft") direcao = { x: -5, y: 0 };
+          if (e.key === "d" || e.key === "ArrowRight") direcao = { x: 5, y: 0 };
+        }
+      });
+    }
 
-    // 🐍 Loop de movimento
+    // Loop de movimento + transição de blocos
     function moverCobra() {
+      if (isMestre) return; // mestre não tem cobrinha
+
+      criarCobra();
       posicao.x += direcao.x;
       posicao.y += direcao.y;
 
-      const limiteY = areaAtual.clientHeight - 20;
-      const limiteX = areaAtual.clientWidth - 40;
+      const limiteY = cima.clientHeight - 25;
+      const limiteX = cima.clientWidth - 50;
+
+      // Transição entre blocos
+      if (!emBaixo && posicao.y > limiteY) {
+        emBaixo = true;
+        areaAtual = baixo;
+        cima.removeChild(cobraEl);
+        cima.removeChild(nickEl);
+        baixo.appendChild(cobraEl);
+        baixo.appendChild(nickEl);
+      } else if (emBaixo && posicao.y < 0) {
+        emBaixo = false;
+        areaAtual = cima;
+        baixo.removeChild(cobraEl);
+        baixo.removeChild(nickEl);
+        cima.appendChild(cobraEl);
+        cima.appendChild(nickEl);
+      }
+
+      // Limites laterais
       if (posicao.x < 0) posicao.x = 0;
       if (posicao.x > limiteX) posicao.x = limiteX;
-      if (posicao.y < 0) posicao.y = 0;
-      if (posicao.y > limiteY) posicao.y = limiteY;
+
+      cobraEl.style.left = posicao.x + "px";
+      cobraEl.style.top = posicao.y + "px";
+      nickEl.style.left = posicao.x + "px";
+      nickEl.style.top = (posicao.y - 20) + "px";
 
       socket.emit("atualizarPosicao", emBaixo ? "baixo" : "cima");
 
@@ -239,20 +260,16 @@
         y: posicao.y
       };
 
-      renderCobras();
       requestAnimationFrame(moverCobra);
     }
+
     requestAnimationFrame(moverCobra);
 
-    // 🖱️ Alterna posição (cima/baixo)
-    cima.onclick = () => { emBaixo = false; areaAtual = cima; socket.emit("atualizarPosicao", "cima"); };
-    baixo.onclick = () => { emBaixo = true; areaAtual = baixo; socket.emit("atualizarPosicao", "baixo"); };
-
-    // 🎛️ Mestre define opções
+    // Mestre: visual prévia das opções
     document.getElementById("opcao1")?.addEventListener("input", (e) => tituloCima.textContent = e.target.value);
     document.getElementById("opcao2")?.addEventListener("input", (e) => tituloBaixo.textContent = e.target.value);
 
-    // 🚀 Mestre inicia votação
+    // Mestre: iniciar votação
     document.getElementById("iniciar")?.addEventListener("click", () => {
       const op1 = document.getElementById("opcao1").value;
       const op2 = document.getElementById("opcao2").value;

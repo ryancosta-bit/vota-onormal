@@ -1,69 +1,72 @@
 const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const path = require("path");
+
 const app = express();
-const http = require("http").createServer(app);
-const io = require("socket.io")(http);
+const server = http.createServer(app);
+const io = new Server(server);
 
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
 
-let mestreSocket = null;
-let votacaoAtiva = false;
-let opcoes = ["Opção A", "Opção B"];
 let jogadores = {};
+let votacao = null;
 
 io.on("connection", (socket) => {
-  console.log("Novo usuário conectado:", socket.id);
+  console.log("Novo jogador conectado:", socket.id);
 
+  // Registrar jogador
   socket.on("registrar", (nick) => {
+    jogadores[socket.id] = {
+      nick,
+      escolha: null,
+      x: 0,
+      y: 0,
+      cor: "#" + Math.floor(Math.random() * 16777215).toString(16)
+    };
+
     if (nick.toLowerCase() === "mestre") {
-      mestreSocket = socket;
       socket.emit("painelMestre");
-    } else {
-      jogadores[socket.id] = { nick, posicao: null, cor: randomColor() };
-      io.emit("jogadores", jogadores);
     }
+
+    io.emit("jogadores", jogadores);
   });
 
-  socket.on("atualizarPosicao", (posicao) => {
+  // Atualizar posição/escolha
+  socket.on("atualizarEscolha", (escolha) => {
     if (jogadores[socket.id]) {
-      jogadores[socket.id].posicao = posicao;
+      jogadores[socket.id].escolha = escolha;
       io.emit("jogadores", jogadores);
     }
   });
 
-  socket.on("novaVotacao", (dados) => {
-    if (socket === mestreSocket) {
-      opcoes = dados.opcoes;
-      votacaoAtiva = true;
-      io.emit("iniciarVotacao", opcoes);
-      setTimeout(() => encerrarVotacao(), dados.tempo * 1000);
-    }
+  // Nova votação
+  socket.on("novaVotacao", (data) => {
+    votacao = {
+      opcoes: data.opcoes,
+      tempo: data.tempo
+    };
+    io.emit("iniciarVotacao", votacao);
   });
 
+  // Limpar seleções (mestre)
+  socket.on("limparSelecoes", () => {
+    for (let j in jogadores) {
+      if (jogadores[j].nick.toLowerCase() !== "mestre") {
+        jogadores[j].escolha = null;
+      }
+    }
+    io.emit("jogadores", jogadores);
+  });
+
+  // Desconexão
   socket.on("disconnect", () => {
     delete jogadores[socket.id];
     io.emit("jogadores", jogadores);
   });
 });
 
-function encerrarVotacao() {
-  votacaoAtiva = false;
-  let cima = 0, baixo = 0;
-  for (const j of Object.values(jogadores)) {
-    if (j.posicao === "cima") cima++;
-    else if (j.posicao === "baixo") baixo++;
-  }
-
-  const resultado = 
-    cima > baixo ? opcoes[0] : 
-    baixo > cima ? opcoes[1] : "Empate!";
-    
-  io.emit("resultado", resultado);
-}
-
-function randomColor() {
-  const cores = ["#a020f0", "#8a2be2", "#9370db", "#c71585", "#9400d3"];
-  return cores[Math.floor(Math.random() * cores.length)];
-}
-
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log("Servidor rodando na porta", PORT));
+server.listen(PORT, () => {
+  console.log("Servidor rodando na porta", PORT);
+});
